@@ -1,0 +1,51 @@
+name: WhatsApp Cloud API sender
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # every 10 minutes (GitHub may delay runs a little)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wa-sender
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Checkout campaign data (wa-data branch)
+        uses: actions/checkout@v4
+        with:
+          ref: wa-data
+          path: data
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Send due messages
+        env:
+          WA_TOKEN: ${{ secrets.WA_TOKEN }}
+          WA_PHONE_NUMBER_ID: ${{ secrets.WA_PHONE_NUMBER_ID }}
+          CAMPAIGN_KEY: ${{ secrets.CAMPAIGN_KEY }}
+          GRAPH_VERSION: ${{ vars.GRAPH_VERSION }}
+          DATA_DIR: data
+        run: node api-sender/send.mjs
+
+      - name: Save progress
+        working-directory: data
+        run: |
+          git config user.name "wa-sender-bot"
+          git config user.email "wa-sender-bot@users.noreply.github.com"
+          git add state.json 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "progress update"
+            git push origin HEAD:wa-data
+          fi

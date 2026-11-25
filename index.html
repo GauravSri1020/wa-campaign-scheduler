@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WA Campaign Scheduler</title>
+<link rel="icon" href="favicon.png">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6f3; --card:#fff; --ink:#15201b; --muted:#5d6b64; --line:#e1e7e3;
+    --green:#128c60; --green-d:#0b6b49; --green-l:#e6f4ee; --amber:#b7791f; --amber-l:#fdf4e3;
+    --red:#c0392b; --red-l:#fbeaea; --blue:#2563a8; --blue-l:#e8f0fa; --r:12px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif}
+  header{background:#0f2a1f;color:#fff;padding:18px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .sub{color:#a9c7b8;font-size:13px}
+  header .spacer{flex:1}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;font-size:12.5px;font-weight:600;background:#29453a;color:#d7eee3}
+  .pill .dot{width:8px;height:8px;border-radius:50%;background:#888}
+  .pill.on .dot{background:#38d39f} .pill.off .dot{background:#e0685a}
+  main{max-width:1180px;margin:0 auto;padding:22px 18px 80px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px}
+  .card h2{font-size:16px;margin:0 0 4px;display:flex;align-items:center;gap:10px}
+  .card h2 .n{background:var(--green);color:#fff;width:24px;height:24px;border-radius:50%;display:inline-grid;place-items:center;font-size:13px}
+  .card .hint{color:var(--muted);font-size:13px;margin:0 0 12px}
+  .full{grid-column:1/-1}
+  label{display:block;font-size:13px;font-weight:600;margin:10px 0 4px;color:#33423b}
+  input[type=text],input[type=number],input[type=time],input[type=date],input[type=password],select,textarea{width:100%;padding:8px 10px;border:1px solid #cdd6d1;border-radius:8px;font:inherit;background:#fff}
+  textarea{min-height:90px;resize:vertical}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .row>*{flex:1;min-width:120px}
+  button,.btn{appearance:none;border:1px solid #cdd6d1;background:#fff;border-radius:8px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer;color:var(--ink);display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+  button:hover{background:#f2f5f3}
+  button.primary{background:var(--green);border-color:var(--green);color:#fff}
+  button.primary:hover{background:var(--green-d)}
+  button.danger{color:var(--red);border-color:#e7b9b3}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .drop{border:2px dashed #b9c8c0;border-radius:10px;padding:18px;text-align:center;color:var(--muted);cursor:pointer;background:#fafcfb}
+  .drop.over{border-color:var(--green);background:var(--green-l)}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+  .stat{background:#f6f8f7;border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:92px}
+  .stat b{display:block;font-size:20px}
+  .stat span{font-size:12px;color:var(--muted)}
+  .note{border-radius:10px;padding:10px 12px;font-size:13.5px;margin:10px 0}
+  .note.warn{background:var(--amber-l);border:1px solid #f0d9a8}
+  .note.info{background:var(--blue-l);border:1px solid #c7dbf3}
+  .note.ok{background:var(--green-l);border:1px solid #bfe3d2}
+  .note.err{background:var(--red-l);border:1px solid #efc4bf}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#f6f8f7;font-weight:600;position:sticky;top:0}
+  .tablewrap{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+  .msg{border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0;display:grid;grid-template-columns:1fr 110px;gap:10px}
+  .msg textarea{min-height:70px}
+  .msg .img{border:1px dashed #c4d0ca;border-radius:8px;display:grid;place-items:center;font-size:12px;color:var(--muted);cursor:pointer;overflow:hidden;min-height:90px;position:relative;text-align:center}
+  .msg .img img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+  .msg .tools{grid-column:1/-1;display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
+  .tabs{display:flex;gap:6px;margin:6px 0 12px;flex-wrap:wrap}
+  .tab{padding:8px 14px;border-radius:8px;border:1px solid var(--line);cursor:pointer;font-weight:600;background:#fff}
+  .tab.active{background:var(--green);color:#fff;border-color:var(--green)}
+  .hidden{display:none!important}
+  .badge{font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:99px;background:#eef1ef;color:#44524b}
+  .badge.sent{background:var(--green-l);color:var(--green-d)} .badge.failed{background:var(--red-l);color:var(--red)}
+  .badge.sending{background:var(--blue-l);color:var(--blue)} .badge.skipped{background:var(--amber-l);color:var(--amber)}
+  .progress{height:10px;background:#e7ece9;border-radius:99px;overflow:hidden;margin:8px 0}
+  .progress>div{height:100%;background:var(--green);width:0;transition:width .4s}
+  .log{font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace;background:#0f1a15;color:#cfe7db;border-radius:8px;padding:10px;max-height:220px;overflow:auto;white-space:pre-wrap}
+  .log .ok{color:#6fe0ac}.log .error{color:#ff9a8d}.log .warn{color:#ffd27a}
+  details{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0;background:#fff}
+  details summary{cursor:pointer;font-weight:650}
+  ol li,ul li{margin:4px 0}
+  code{background:#eef2f0;padding:1px 5px;border-radius:5px;font-size:12.5px}
+  .chk{display:flex;gap:10px;flex-wrap:wrap}
+  .chk label{display:flex;align-items:center;gap:4px;font-weight:500;margin:0}
+  .muted{color:var(--muted)}
+  .small{font-size:12.5px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>WA Campaign Scheduler</h1>
+    <div class="sub">Excel → messages → safe, spaced-out WhatsApp sending. Free, runs in your browser / GitHub.</div>
+  </div>
+  <div class="spacer"></div>
+  <span id="extPill" class="pill off"><span class="dot"></span><span id="extTxt">Extension not detected</span></span>
+</header>
+
+<main>
+  <div class="note info small" id="consentNote">
+    Only message people who know you and have agreed to hear from you (your customers, people who saved your number).
+    Add an opt-out line like <i>“Reply STOP to unsubscribe”</i>. Spam reports are the #1 reason numbers get banned.
+  </div>
+
+  <div class="grid">
+    <!-- STEP 1 -->
+    <section class="card">
+      <h2><span class="n">1</span>Contacts</h2>
+      <p class="hint">Upload your Excel/CSV. Needs a column like <b>Phone</b> / Mobile / Number. Optional: Name and any other columns (usable as <code>{name}</code>, <code>{city}</code>…).</p>
+      <div class="drop" id="xlsDrop">Drop Excel / CSV here or <u>click to choose</u><br><span class="small">.xlsx, .xls, .csv</span></div>
+      <input type="file" id="xlsInput" accept=".xlsx,.xls,.csv" class="hidden">
+      <div class="row" style="margin-top:10px">
+        <button id="sampleBtn" type="button">⬇ Download sample Excel</button>
+        <div style="flex:0 0 140px"><label>Default country code</label><input type="text" id="cc" value="91"></div>
+      </div>
+      <label>…or paste numbers (one per line, optional “number, name”)</label>
+      <textarea id="pasteNums" placeholder="9876543210, Rahul&#10;919812345678, Priya"></textarea>
+      <div class="row" style="margin-top:8px"><button id="addPasted" type="button">Add pasted numbers</button><button id="clearContacts" class="danger" type="button">Clear contacts</button></div>
+      <div class="stats" id="contactStats"></div>
+      <div id="sheetInfo" class="small muted"></div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section class="card">
+      <h2><span class="n">2</span>Messages &amp; images</h2>
+      <p class="hint">Loaded from a sheet with a <b>Message</b> column (optional <b>Image</b> = file name, <b>Date</b> = YYYY-MM-DD) or add them here. Use <code>{name}</code> for personalisation and <code>{Hi|Hello|Namaste}</code> to vary wording.</p>
+      <div id="msgList"></div>
+      <div class="row">
+        <button id="addMsg" type="button">+ Add message</button>
+        <button id="bulkImgBtn" type="button">🖼 Upload images (match by file name)</button>
+        <input type="file" id="bulkImg" accept="image/*" multiple class="hidden">
+      </div>
+      <label>Which message does each contact get?</label>
+      <select id="assignMode">
+        <option value="rotate">Rotate: contact 1 → msg 1, contact 2 → msg 2 …</option>
+        <option value="first">Same message (first one) for everyone</option>
+        <option value="date">By date: use the message whose Date = send day</option>
+        <option value="random">Random message per contact</option>
+      </select>
+    </section>
+
+    <!-- STEP 3 -->
+    <section class="card full">
+      <h2><span class="n">3</span>Schedule &amp; safety limits</h2>
+      <p class="hint">Messages go out one by one, with a random gap, only inside your sending window, never more than the daily cap.</p>
+      <div class="row">
+        <div><label>Messages per day</label><input type="number" id="perDay" min="1" max="50" value="30"></div>
+        <div><label>Window start</label><input type="time" id="winStart" value="10:00"></div>
+        <div><label>Window end</label><input type="time" id="winEnd" value="19:00"></div>
+        <div><label>Min gap (minutes)</label><input type="number" id="minGap" min="2" value="10"></div>
+        <div><label>Max gap (minutes)</label><input type="number" id="maxGap" min="2" value="18"></div>
+        <div><label>Start date</label><input type="date" id="startDate"></div>
+      </div>
+      <label>Send on</label>
+      <div class="chk" id="days"></div>
+      <div class="row" style="margin-top:6px"><div><label>Opt-out / do-not-message numbers (one per line)</label><textarea id="optout" style="min-height:60px" placeholder="Numbers that replied STOP"></textarea></div></div>
+      <div id="policyNote"></div>
+      <div class="row" style="margin-top:6px"><button class="primary" id="buildBtn" type="button">Build schedule</button><span id="buildInfo" class="small muted" style="flex:3"></span></div>
+      <div class="tablewrap hidden" id="schedWrap" style="margin-top:12px"><table id="schedTable"></table></div>
+    </section>
+
+    <!-- STEP 4 -->
+    <section class="card full">
+      <h2><span class="n">4</span>Send</h2>
+      <div class="tabs">
+        <div class="tab active" data-tab="web">A · WhatsApp Web (free, your own browser)</div>
+        <div class="tab" data-tab="api">B · Official Cloud API (GitHub Actions)</div>
+      </div>
+
+      <!-- MODE A -->
+      <div id="tab-web">
+        <div id="extMissing" class="note warn">
+          <b>Install the free sender extension once</b> (2 minutes):
+          <ol style="margin:6px 0 0 18px;padding:0">
+            <li><a href="https://github.com/GauravSri1020/wa-campaign-scheduler/archive/refs/heads/main.zip">Download the project ZIP</a> and unzip it.</li>
+            <li>Open <code>chrome://extensions</code>, switch on <b>Developer mode</b> (top-right).</li>
+            <li>Click <b>Load unpacked</b> → choose the <code>extension</code> folder from the ZIP.</li>
+            <li>Open <a href="https://web.whatsapp.com" target="_blank">web.whatsapp.com</a> in this same Chrome and scan the QR with your phone.</li>
+            <li>Reload this page — the pill at the top turns green.</li>
+          </ol>
+        </div>
+        <div class="row">
+          <div><label>Test: send to my own number first</label><input type="text" id="testPhone" placeholder="919876543210"></div>
+          <div style="flex:0 0 auto"><button id="testBtn" type="button">Send test (first message)</button></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="primary" id="loadStartBtn" type="button">▶ Load schedule &amp; start</button>
+          <button id="pauseBtn" type="button">⏸ Pause</button>
+          <button id="resumeBtn" type="button">⏵ Resume</button>
+          <button id="nowBtn" type="button">Send next now</button>
+          <button id="retryBtn" type="button">Retry failed</button>
+          <button id="reportBtn" type="button">⬇ Report CSV</button>
+          <button id="clearBtn" class="danger" type="button">Clear campaign</button>
+        </div>
+        <div class="note info small">Keep Chrome open (WhatsApp Web tab can stay in the background, the laptop must be awake &amp; online). If the browser is closed, sending simply pauses and continues later — it never bursts to “catch up”.</div>
+        <div id="webStatus"></div>
+      </div>
+
+      <!-- MODE B -->
+      <div id="tab-api" class="hidden">
+        <div class="note warn small">
+          Official &amp; ban-safe, runs on GitHub's free servers even when your laptop is off. But Meta charges per <i>marketing</i> message
+          (India ≈ ₹0.86 each) and business-initiated messages must use a <b>Meta-approved template</b>. Setup guide is below.
+        </div>
+        <div class="row">
+          <div><label>GitHub repo (owner/name)</label><input type="text" id="ghRepo"></div>
+          <div><label>GitHub token (fine-grained: Contents + Actions read/write on this repo)</label><input type="password" id="ghPat" placeholder="github_pat_…"></div>
+          <div><label>Encryption passphrase (= repo secret CAMPAIGN_KEY)</label><input type="password" id="ghKey"></div>
+        </div>
+        <div class="row">
+          <div><label>Message type</label>
+            <select id="apiType"><option value="template">Approved template (needed for marketing)</option><option value="text">Free text / image (only if the contact messaged you in last 24h)</option></select></div>
+          <div><label>Template name</label><input type="text" id="tplName" placeholder="diwali_offer"></div>
+          <div><label>Template language code</label><input type="text" id="tplLang" value="en"></div>
+          <div><label>Body variables from columns (comma)</label><input type="text" id="tplParams" placeholder="name"></div>
+        </div>
+        <div class="small muted" style="margin-top:6px">If the template has an IMAGE header, the image of the assigned message is used. Your contacts are encrypted in the browser before upload — the public repo only ever holds unreadable data.</div>
+        <div class="row" style="margin-top:12px">
+          <button class="primary" id="ghPushBtn" type="button">🔒 Encrypt &amp; push schedule to GitHub</button>
+          <button id="ghRunBtn" type="button">Run sender now</button>
+          <button id="ghStatusBtn" type="button">Refresh status</button>
+        </div>
+        <div id="apiStatus"></div>
+      </div>
+    </section>
+
+    <!-- GUIDE -->
+    <section class="card full">
+      <h2>How the WhatsApp connection works</h2>
+      <details open><summary>Option A — WhatsApp Web + extension (₹0, uses your normal number)</summary>
+        <ul>
+          <li>Nothing to give anyone: no API key. The extension opens each chat in <b>your</b> logged-in WhatsApp Web tab, attaches the image, types the caption and presses Send — the same as you doing it by hand.</li>
+          <li>Data stays on your computer (Chrome extension storage). This page never uploads your contacts in this mode.</li>
+          <li><b>Risk:</b> WhatsApp does not officially allow automation of personal/Business-app accounts. Low, human-like volume to people who know you is usually fine; cold lists, identical texts and many “block/report” taps get numbers banned. Use a number you can afford to lose while you test.</li>
+          <li>Safe-ish habits: new number → start 10–15/day for a week, then 25–40; keep gaps ≥ 8 min; vary wording with <code>{a|b}</code>; include the person's name; honour STOP replies.</li>
+        </ul>
+      </details>
+      <details><summary>Option B — Official WhatsApp Cloud API (what to create and give)</summary>
+        <ol>
+          <li>Go to <a href="https://developers.facebook.com/apps" target="_blank">developers.facebook.com</a> → Create app → type <b>Business</b> → add product <b>WhatsApp</b>.</li>
+          <li>In WhatsApp → <b>API Setup</b>: add your business phone number (it must <i>not</i> be active on the WhatsApp app — use a new SIM or delete WhatsApp from that number first) and verify it by OTP. Copy the <b>Phone number ID</b>.</li>
+          <li>Business Settings → System users → create an admin system user → <b>Generate token</b> with permissions <code>whatsapp_business_messaging</code>, <code>whatsapp_business_management</code> (choose “never expire”). That is your <b>WA_TOKEN</b>.</li>
+          <li>WhatsApp Manager → <b>Message templates</b> → create a <i>Marketing</i> template (optional image header, body like “Hi {{1}}, …”). Wait for approval.</li>
+          <li>Add a payment method in WhatsApp Manager (needed for marketing messages).</li>
+          <li>In this GitHub repo → Settings → Secrets and variables → Actions → add secrets: <code>WA_TOKEN</code>, <code>WA_PHONE_NUMBER_ID</code>, <code>CAMPAIGN_KEY</code> (any long passphrase — type the same one above).</li>
+          <li>Build your schedule here, then “Encrypt &amp; push”. The GitHub Action runs every 10 minutes and sends what is due.</li>
+        </ol>
+      </details>
+    </section>
+  </div>
+</main>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const LS = 'wasched.v1';
+
+const S = {
+  contacts: [],      // {phone, name, vars:{}, msg?:string, img?:string}
+  invalid: [],
+  dups: 0,
+  messages: [],      // {text, image: key|null, date: 'YYYY-MM-DD'|''}
+  images: {},        // key -> dataURL (compressed)
+  jobs: [],
+};
+
+// ---------------- persistence (no images: too big for localStorage) ----------------
+function save() {
+  const cfg = {
+    contacts: S.contacts, messages: S.messages,
+    settings: readSettings(), assign: $('#assignMode').value, cc: $('#cc').value,
+    optout: $('#optout').value, testPhone: $('#testPhone').value,
+    gh: { repo: $('#ghRepo').value, type: $('#apiType').value, tpl: $('#tplName').value, lang: $('#tplLang').value, params: $('#tplParams').value }
+  };
+  try { localStorage.setItem(LS, JSON.stringify(cfg)); } catch {}
+}
+function restore() {
+  let c; try { c = JSON.parse(localStorage.getItem(LS) || 'null'); } catch {}
+  if (!c) return;
+  S.contacts = c.contacts || []; S.messages = c.messages || [];
+  const st = c.settings || {};
+  if (st.perDay) $('#perDay').value = st.perDay;
+  if (st.windowStart) $('#winStart').value = st.windowStart;
+  if (st.windowEnd) $('#winEnd').value = st.windowEnd;
+  if (st.minGapMin) $('#minGap').value = st.minGapMin;
+  if (st.maxGapMin) $('#maxGap').value = st.maxGapMin;
+  if (st.days) $$('#days input').forEach(i => i.checked = st.days.includes(+i.value));
+  if (c.assign) $('#assignMode').value = c.assign;
+  if (c.cc) $('#cc').value = c.cc;
+  $('#optout').value = c.optout || '';
+  $('#testPhone').value = c.testPhone || '';
+  if (c.gh) { $('#ghRepo').value = c.gh.repo || $('#ghRepo').value; $('#apiType').value = c.gh.type || 'template'; $('#tplName').value = c.gh.tpl || ''; $('#tplLang').value = c.gh.lang || 'en'; $('#tplParams').value = c.gh.params || ''; }
+}
+
+// ---------------- phones ----------------
+function normPhone(raw) {
+  let s = String(raw ?? '').trim();
+  if (!s) return null;
+  if (/e\+?\d+$/i.test(s) && !isNaN(Number(s))) s = Number(s).toFixed(0); // Excel scientific notation
+  const plus = s.startsWith('+') || s.startsWith('00');
+  let d = s.replace(/\D/g, '');
+  if (s.startsWith('00')) d = d.slice(2);
+  const cc = ($('#cc').value || '').replace(/\D/g, '');
+  if (!plus) {
+    if (d.length === 11 && d.startsWith('0')) d = d.slice(1);
+    if (cc && d.length === 10) d = cc + d;
+  }
+  if (d.length < 10 || d.length > 15) return null;
+  return d;
+}
+
+// ---------------- excel ----------------
+const RX = {
+  phone: /^(phone|mobile|mob|number|no|whatsapp|wa|contact|cell|msisdn|phone ?no|mobile ?no|contact ?no|nmbr|numbers?)\b/i,
+  name: /^(name|full ?name|customer|client|first ?name)/i,
+  msg: /^(message|msg|text|content|caption|body)/i,
+  img: /^(image|img|photo|picture|pic|media|banner|attachment)/i,
+  date: /^(date|day|send ?date)/i,
+};
+function findCol(headers, rx) { return headers.find(h => rx.test(String(h).trim())); }
+
+function handleWorkbook(wb, fileName) {
+  let addedC = 0, addedM = 0; const info = [];
+  for (const sn of wb.SheetNames) {
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { defval: '', raw: false });
+    if (!rows.length) {
+      // header-less single column of numbers?
+      continue;
+    }
+    const headers = Object.keys(rows[0]);
+    let pc = findCol(headers, RX.phone);
+    const mc = findCol(headers, RX.msg), ic = findCol(headers, RX.img), dc = findCol(headers, RX.date), nc = findCol(headers, RX.name);
+    if (!pc && !mc) {
+      // try: first column looks like phone numbers
+      const first = headers[0];
+      const looks = rows.slice(0, 10).filter(r => normPhone(r[first])).length;
+      const headLooks = normPhone(first);
+      if (looks >= Math.min(3, rows.length) || headLooks) {
+        const arr = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: '', raw: false });
+        arr.forEach(r => addContact(r[0], r[1] || '', {}) && addedC++);
+        info.push(`“${sn}”: ${arr.length} numbers (no header)`);
+      }
+      continue;
+    }
+    if (pc) {
+      let n = 0;
+      rows.forEach(r => {
+        const vars = {}; headers.forEach(h => vars[String(h).trim().toLowerCase()] = r[h]);
+        if (addContact(r[pc], nc ? r[nc] : '', vars, mc ? r[mc] : '', ic ? r[ic] : '')) n++;
+      });
+      addedC += n;
+      info.push(`“${sn}”: contacts (phone column “${pc}”${mc ? ', per-row message “' + mc + '”' : ''})`);
+    } else if (mc) {
+      let n = 0;
+      rows.forEach(r => {
+        const text = String(r[mc] || '').trim();
+        if (!text && !(ic && r[ic])) return;
+        S.messages.push({ text, image: ic && r[ic] ? String(r[ic]).trim().toLowerCase() : null, date: dc ? normDate(r[dc]) : '' });
+        n++;
+      });
+      addedM += n;
+      info.push(`“${sn}”: ${n} messages`);
+    }
+  }
+  $('#sheetInfo').innerHTML = `<b>${esc(fileName)}</b> → ` + (info.map(esc).join(' · ') || 'no usable sheet found');
+  renderContacts(); renderMessages(); save();
+  return { addedC, addedM };
+}
+
+function normDate(v) {
+  if (!v) return '';
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/); // DD/MM/YYYY (India)
+  if (m) { const y = m[3].length === 2 ? '20' + m[3] : m[3]; return `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; }
+  const d = new Date(s); return isNaN(d) ? '' : d.toISOString().slice(0, 10);
+}
+
+function addContact(rawPhone, name, vars = {}, msg = '', img = '') {
+  const p = normPhone(rawPhone);
+  if (!p) { if (String(rawPhone || '').trim()) S.invalid.push(String(rawPhone)); return false; }
+  if (S.contacts.some(c => c.phone === p)) { S.dups++; return false; }
+  const nm = String(name || '').trim();
+  vars.name = vars.name || nm; vars.phone = p;
+  const c = { phone: p, name: nm, vars };
+  if (msg && String(msg).trim()) c.msg = String(msg).trim();
+  if (img && String(img).trim()) c.img = String(img).trim().toLowerCase();
+  S.contacts.push(c);
+  return true;
+}
+
+function renderContacts() {
+  const per = S.contacts.filter(c => c.msg).length;
+  $('#contactStats').innerHTML =
+    `<div class="stat"><b>${S.contacts.length}</b><span>valid contacts</span></div>` +
+    `<div class="stat"><b>${S.invalid.length}</b><span>invalid numbers</span></div>` +
+    `<div class="stat"><b>${S.dups}</b><span>duplicates removed</span></div>` +
+    (per ? `<div class="stat"><b>${per}</b><span>with own message</span></div>` : '') +
+    (S.invalid.length ? `<div class="small muted" style="flex-basis:100%">Invalid: ${esc(S.invalid.slice(0, 8).join(', '))}${S.invalid.length > 8 ? '…' : ''}</div>` : '');
+}
+
+async function readFile(f) {
+  const buf = await f.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array' });
+  handleWorkbook(wb, f.name);
+}
+
+// ---------------- images ----------------
+function compressImage(file, maxSide = 1600, quality = 0.85) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+        g.drawImage(img, 0, 0, c.width, c.height);
+        res(c.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = rej; img.src = fr.result;
+    };
+    fr.onerror = rej; fr.readAsDataURL(file);
+  });
+}
+async function addImageFile(file) {
+  const key = file.name.trim().toLowerCase();
+  S.images[key] = await compressImage(file);
+  return key;
+}
+
+// ---------------- messages UI ----------------
+function renderMessages() {
+  const box = $('#msgList');
+  if (!S.messages.length) { box.innerHTML = '<div class="small muted" style="margin:8px 0">No messages yet.</div>'; return; }
+  box.innerHTML = S.messages.map((m, i) => `
+    <div class="msg" data-i="${i}">
+      <textarea data-f="text" placeholder="Hi {name}, …">${esc(m.text)}</textarea>
+      <div class="img" data-f="img" title="Click to attach an image">${m.image && S.images[m.image] ? `<img src="${S.images[m.image]}">` : (m.image ? `⚠ upload<br><b>${esc(m.image)}</b>` : '+ image<br>(optional)')}</div>
+      <div class="tools">#${i + 1}
+        <input type="date" data-f="date" value="${esc(m.date || '')}" style="width:auto;padding:3px 6px" title="Only for 'By date' mode">
+        ${m.image ? `<button type="button" data-f="rmimg" style="padding:3px 8px">Remove image</button>` : ''}
+        <span style="flex:1"></span><button type="button" class="danger" data-f="del" style="padding:3px 8px">Delete</button></div>
+    </div>`).join('');
+}
+$('#msgList').addEventListener('input', (e) => {
+  const w = e.target.closest('.msg'); if (!w) return; const m = S.messages[+w.dataset.i];
+  if (e.target.dataset.f === 'text') m.text = e.target.value;
+  if (e.target.dataset.f === 'date') m.date = e.target.value;
+  save();
+});
+$('#msgList').addEventListener('click', (e) => {
+  const w = e.target.closest('.msg'); if (!w) return; const i = +w.dataset.i; const f = e.target.closest('[data-f]')?.dataset.f;
+  if (f === 'del') { S.messages.splice(i, 1); renderMessages(); save(); }
+  if (f === 'rmimg') { S.messages[i].image = null; renderMessages(); save(); }
+  if (f === 'img') {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = async () => { if (!inp.files[0]) return; S.messages[i].image = await addImageFile(inp.files[0]); renderMessages(); save(); };
+    inp.click();
+  }
+});
+$('#addMsg').onclick = () => { S.messages.push({ text: '', image: null, date: '' }); renderMessages(); save(); };
+$('#bulkImgBtn').onclick = () => $('#bulkImg').click();
+$('#bulkImg').onchange = async (e) => {
+  const files = Array.from(e.target.files || []);
+  for (const f of files) await addImageFile(f);
+  // a single image with no names referenced → attach to messages without image
+  if (files.length === 1 && !S.messages.some(m => m.image)) S.messages.forEach(m => m.image = files[0].name.trim().toLowerCase());
+  renderMessages(); save();
+};
+
+// ---------------- templating ----------------
+function spin(text) {
+  return text.replace(/\{([^{}]*\|[^{}]*)\}/g, (_, g) => { const o = g.split('|'); return o[Math.floor(Math.random() * o.length)]; });
+}
+function fill(text, c) {
+  let t = spin(text || '');
+  t = t.replace(/\{\{?\s*([\w .-]+?)\s*\}?\}/g, (m, k) => {
+    const v = c.vars[k.toLowerCase()];
+    if (v === undefined) return m;
+    return String(v).trim() || (k.toLowerCase() === 'name' ? 'there' : '');
+  });
+  return t.replace(/[ \t]+\n/g, '\n').trim();
+}
+
+// ---------------- settings & schedule ----------------
+const DAYN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+$('#days').innerHTML = DAYN.map((d, i) => `<label><input type="checkbox" value="${i}" ${i === 0 ? '' : 'checked'}> ${d}</label>`).join('');
+const today = new Date(); $('#startDate').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+function readSettings() {
+  const hmv = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+  let perDay = Math.max(1, Math.min(50, parseInt($('#perDay').value, 10) || 30));
+  let minG = Math.max(2, parseFloat($('#minGap').value) || 10), maxG = Math.max(minG, parseFloat($('#maxGap').value) || minG);
+  return {
+    perDay, windowStart: $('#winStart').value || '10:00', windowEnd: $('#winEnd').value || '19:00',
+    minGapMin: minG, maxGapMin: maxG, days: $$('#days input:checked').map(i => +i.value), tz: TZ,
+    startDate: $('#startDate').value, _winMin: hmv($('#winEnd').value || '19:00') - hmv($('#winStart').value || '10:00')
+  };
+}
+
+function policyCheck() {
+  const s = readSettings(); const notes = [];
+  const avg = (s.minGapMin + s.maxGapMin) / 2; const fit = Math.floor(s._winMin / avg);
+  if (s._winMin <= 0) notes.push(['err', 'Window end must be after window start.']);
+  if (s.perDay > 40) notes.push(['warn', `${s.perDay}/day is aggressive for an unofficial (WhatsApp Web) sender. 20–40/day with ≥8 min gaps is the usual safe range; start with 10–15/day on a new number.`]);
+  if (s.minGapMin < 5) notes.push(['warn', 'Gaps under 5 minutes look robotic. Keep the minimum gap at 8 minutes or more.']);
+  if (fit < s.perDay && s._winMin > 0) notes.push(['info', `With ~${avg.toFixed(0)} min average gap only ~${fit} messages fit in the ${Math.round(s._winMin / 60 * 10) / 10} h window, so the real daily count will be about ${fit}. Widen the window or shorten gaps to reach ${s.perDay}.`]);
+  if (!s.days.length) notes.push(['err', 'Pick at least one day.']);
+  $('#policyNote').innerHTML = notes.map(([k, t]) => `<div class="note ${k} small">${t}</div>`).join('');
+  return !notes.some(n => n[0] === 'err');
+}
+['perDay', 'winStart', 'winEnd', 'minGap', 'maxGap', 'startDate'].forEach(id => $('#' + id).addEventListener('input', () => { policyCheck(); save(); }));
+$('#days').addEventListener('change', () => { policyCheck(); save(); });
+
+function dateAt(ymd, minutes) { const [y, m, d] = ymd.split('-').map(Number); return new Date(y, m - 1, d, 0, minutes, 0, 0); }
+function ymdOf(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+
+function pickMessage(idx, c, dayYmd) {
+  if (c.msg) return { text: c.msg, image: c.img || null };
+  const M = S.messages.filter(m => (m.text && m.text.trim()) || m.image);
+  if (!M.length) return null;
+  const mode = $('#assignMode').value;
+  if (mode === 'first') return M[0];
+  if (mode === 'random') return M[Math.floor(Math.random() * M.length)];
+  if (mode === 'date') { const md = M.find(m => m.date === dayYmd); if (md) return md; const nd = M.filter(m => !m.date); if (nd.length) return nd[idx % nd.length]; return null; }
+  return M[idx % M.length];
+}
+
+function buildSchedule() {
+  if (!policyCheck()) return false;
+  const s = readSettings();
+  const opt = new Set($('#optout').value.split(/\n|,/).map(normPhone).filter(Boolean));
+  const list = S.contacts.filter(c => !opt.has(c.phone));
+  if (!list.length) { $('#buildInfo').textContent = 'Add contacts first.'; return false; }
+  if (!S.messages.length && !list.some(c => c.msg)) { $('#buildInfo').textContent = 'Add at least one message.'; return false; }
+  const hmv = (x) => { const [h, m] = x.split(':').map(Number); return h * 60 + m; };
+  const ws = hmv(s.windowStart), we = hmv(s.windowEnd);
+  const jobs = []; let i = 0, dayOffset = 0, noMsg = 0;
+  const start = s.startDate || ymdOf(new Date());
+  while (i < list.length && dayOffset < 400) {
+    const d0 = dateAt(start, 0); d0.setDate(d0.getDate() + dayOffset); dayOffset++;
+    if (!s.days.includes(d0.getDay())) continue;
+    const ymd = ymdOf(d0);
+    let t = dateAt(ymd, ws).getTime();
+    const end = dateAt(ymd, we).getTime();
+    t = Math.max(t, Date.now() + 60000);
+    let count = 0;
+    while (count < s.perDay && i < list.length && t < end) {
+      const c = list[i];
+      const m = pickMessage(i, c, ymd);
+      if (!m) { noMsg++; i++; continue; }
+      jobs.push({ id: 'j' + i + '-' + Math.random().toString(36).slice(2, 7), phone: c.phone, name: c.name, text: fill(m.text, c), image: m.image || null, at: t, status: 'pending', vars: c.vars });
+      count++; i++;
+      t += (s.minGapMin + Math.random() * (s.maxGapMin - s.minGapMin)) * 60000;
+    }
+  }
+  S.jobs = jobs;
+  const missing = [...new Set(jobs.filter(j => j.image && !S.images[j.image]).map(j => j.image))];
+  const last = jobs.length ? new Date(jobs[jobs.length - 1].at) : null;
+  $('#buildInfo').innerHTML = `<b>${jobs.length}</b> messages scheduled${last ? `, last one on <b>${last.toLocaleString()}</b>` : ''}.` +
+    (noMsg ? ` ${noMsg} contacts skipped (no message for their day).` : '') +
+    (missing.length ? ` <span style="color:var(--red)">Missing images: ${esc(missing.join(', '))} — upload them in step 2.</span>` : '');
+  $('#schedWrap').classList.remove('hidden');
+  $('#schedTable').innerHTML = '<tr><th>#</th><th>When</th><th>Phone</th><th>Name</th><th>Message</th><th>Image</th></tr>' +
+    jobs.slice(0, 300).map((j, k) => `<tr><td>${k + 1}</td><td>${new Date(j.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</td><td>${j.phone}</td><td>${esc(j.name)}</td><td>${esc(j.text.slice(0, 120))}${j.text.length > 120 ? '…' : ''}</td><td>${j.image ? (S.images[j.image] ? '🖼' : '⚠') : ''}</td></tr>`).join('') +
+    (jobs.length > 300 ? `<tr><td colspan="6" class="muted">…and ${jobs.length - 300} more</td></tr>` : '');
+  return !missing.length;
+}
+$('#buildBtn').onclick = () => { buildSchedule(); save(); };
+
+// ---------------- extension bridge ----------------
+let EXT = null; const pend = new Map(); let seq = 0;
+window.addEventListener('message', (ev) => {
+  const d = ev.data; if (ev.source !== window || !d || !d.__wasched) return;
+  if (d.__wasched === 'hello') { EXT = d.version; setPill(); refreshWeb(); }
+  if (d.__wasched === 'res' && pend.has(d.id)) { pend.get(d.id)(d.data); pend.delete(d.id); }
+  if (d.__wasched === 'status') renderWebStatus(d.data);
+});
+function ext(type, payload) {
+  return new Promise((res) => {
+    const id = ++seq; pend.set(id, res);
+    window.postMessage({ __wasched: 'req', id, type, payload }, '*');
+    setTimeout(() => { if (pend.has(id)) { pend.delete(id); res({ ok: false, error: 'Extension did not answer' }); } }, 20000);
+  });
+}
+function setPill() {
+  $('#extPill').className = 'pill ' + (EXT ? 'on' : 'off');
+  $('#extTxt').textContent = EXT ? `Sender extension v${EXT} connected` : 'Extension not detected';
+  $('#extMissing').classList.toggle('hidden', !!EXT);
+}
+window.postMessage({ __wasched: 'req', id: 0, type: 'PING' }, '*');
+
+function needExt() { if (!EXT) { alert('Install the sender extension first (see the steps in the yellow box), then reload this page.'); return false; } return true; }
+
+$('#testBtn').onclick = async () => {
+  if (!needExt()) return;
+  const p = normPhone($('#testPhone').value); if (!p) return alert('Enter your own number with country code, e.g. 919876543210');
+  const c = { phone: p, name: 'Test', vars: { ...(S.contacts[0]?.vars || {}), name: S.contacts[0]?.name || 'Test', phone: p } };
+  const m = S.contacts[0]?.msg ? { text: S.contacts[0].msg, image: S.contacts[0].img } : (S.messages[0] || { text: 'Test message from WA Campaign Scheduler ✅', image: null });
+  const r = await ext('TEST_SEND', { phone: p, text: fill(m.text, c), imageData: m.image ? S.images[m.image] || null : null, tz: TZ });
+  if (!r.ok) alert('Could not queue test: ' + r.error);
+  save(); refreshWeb();
+};
+
+$('#loadStartBtn').onclick = async () => {
+  if (!needExt()) return;
+  if (!S.jobs.length && !buildSchedule()) return;
+  const missing = S.jobs.filter(j => j.image && !S.images[j.image]);
+  if (missing.length && !confirm(`${missing.length} messages reference images that are not uploaded. Send them without image?`)) return;
+  const used = {}; S.jobs.forEach(j => { if (j.image && S.images[j.image]) used[j.image] = S.images[j.image]; else j.image = null; });
+  const s = readSettings();
+  const campaign = { id: 'c' + Date.now(), name: 'Campaign ' + new Date().toLocaleString(), settings: s, jobs: S.jobs.map(({ vars, ...j }) => j) };
+  const st = await ext('STATUS');
+  if (st.ok && st.counts && st.counts.pending > 0 && !confirm(`The extension still has ${st.counts.pending} pending messages from an earlier campaign. Replace them?`)) return;
+  let r = await ext('LOAD_CAMPAIGN', { campaign, images: used });
+  if (!r.ok) return alert('Load failed: ' + r.error);
+  await ext('SET_OPTOUT', { list: $('#optout').value.split(/\n|,/).map(normPhone).filter(Boolean) });
+  r = await ext('START');
+  if (!r.ok) alert('Start failed: ' + r.error);
+  refreshWeb();
+};
+$('#pauseBtn').onclick = async () => { if (needExt()) { await ext('PAUSE'); refreshWeb(); } };
+$('#resumeBtn').onclick = async () => { if (needExt()) { await ext('START'); refreshWeb(); } };
+$('#nowBtn').onclick = async () => { if (needExt() && confirm('Send the next pending message right now (ignores gap & window)?')) { await ext('SEND_NEXT_NOW'); refreshWeb(); } };
+$('#retryBtn').onclick = async () => { if (needExt()) { await ext('RETRY_FAILED'); refreshWeb(); } };
+$('#clearBtn').onclick = async () => { if (needExt() && confirm('Remove the campaign and all its queued messages from the extension?')) { await ext('CLEAR'); refreshWeb(); } };
+$('#reportBtn').onclick = async () => {
+  if (!needExt()) return; const st = await ext('STATUS'); if (!st.ok || !st.jobs) return;
+  const rows = [['phone', 'name', 'scheduled', 'status', 'sent_at', 'error', 'message']].concat(st.jobs.map(j => [j.phone, j.name || '', new Date(j.at).toLocaleString(), j.status, j.sentAt ? new Date(j.sentAt).toLocaleString() : '', j.error || '', j.text || '']));
+  const ws = XLSX.utils.aoa_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Report');
+  XLSX.writeFile(wb, 'whatsapp-report.xlsx');
+};
+
+let lastStatus = null;
+async function refreshWeb() { if (!EXT) return; const st = await ext('STATUS'); if (st && st.ok) renderWebStatus(st); }
+function renderWebStatus(st) {
+  if (st.jobs) lastStatus = st; else if (lastStatus) { st.jobs = lastStatus.jobs; }
+  const c = st.counts || {}; const done = (c.sent || 0) + (c.failed || 0) + (c.skipped || 0);
+  const pct = c.total ? Math.round(done / c.total * 100) : 0;
+  const r = st.run || {};
+  const next = r.nextAllowedAt && r.nextAllowedAt > Date.now() ? new Date(r.nextAllowedAt).toLocaleTimeString() : 'now (when inside window)';
+  const nextJob = (st.jobs || []).filter(j => j.status === 'pending').sort((a, b) => a.at - b.at)[0];
+  $('#webStatus').innerHTML = !st.campaign ? '<div class="note small">No campaign loaded in the extension yet.</div>' : `
+    <div class="stats">
+      <div class="stat"><b>${r.running ? '🟢 Running' : '⏸ Paused'}</b><span>${esc(r.pausedReason || st.campaign.name)}</span></div>
+      <div class="stat"><b>${c.sent || 0}</b><span>sent</span></div>
+      <div class="stat"><b>${c.pending || 0}</b><span>pending</span></div>
+      <div class="stat"><b>${c.failed || 0}</b><span>failed</span></div>
+      <div class="stat"><b>${r.sentToday}/${st.campaign.settings?.perDay || '-'}</b><span>today</span></div>
+      <div class="stat"><b class="small" style="font-size:14px">${r.current ? 'sending…' : esc(next)}</b><span>next allowed</span></div>
+      ${nextJob ? `<div class="stat"><b class="small" style="font-size:14px">${new Date(nextJob.at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</b><span>next planned (${nextJob.phone})</span></div>` : ''}
+    </div>
+    <div class="progress"><div style="width:${pct}%"></div></div>
+    ${r.pausedReason && !r.running ? `<div class="note warn small">${esc(r.pausedReason)}</div>` : ''}
+    <div class="grid" style="gap:12px">
+      <div class="tablewrap"><table><tr><th>When</th><th>Phone</th><th>Status</th><th>Info</th></tr>
+        ${(st.jobs || []).slice().sort((a, b) => (b.sentAt || 0) - (a.sentAt || 0) || a.at - b.at).slice(0, 200).map(j => `<tr><td>${new Date(j.sentAt || j.at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</td><td>${j.phone}${j.test ? ' <span class="badge">test</span>' : ''}</td><td><span class="badge ${j.status}">${j.status}</span></td><td class="small">${esc(j.error || (j.text || '').slice(0, 50))}</td></tr>`).join('')}
+      </table></div>
+      <div class="log">${(st.logs || []).slice().reverse().map(l => `<div class="${l.level}">${new Date(l.t).toLocaleTimeString()}  ${esc(l.msg)}</div>`).join('')}</div>
+    </div>`;
+}
+setInterval(refreshWeb, 8000);
+
+// ---------------- GitHub / Cloud API mode ----------------
+(function defaultRepo() {
+  const h = location.hostname.match(/^([\w-]+)\.github\.io$/);
+  const seg = location.pathname.split('/').filter(Boolean)[0];
+  $('#ghRepo').value = h ? `${h[1]}/${seg || h[1] + '.github.io'}` : 'GauravSri1020/wa-campaign-scheduler';
+})();
+const DATA_BRANCH = 'wa-data';
+const b64enc = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+const b64dec = (b) => Uint8Array.from(atob(b.replace(/\s/g, '')), c => c.charCodeAt(0));
+async function encrypt(obj, pass) {
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(obj))));
+  return { v: 1, kdf: 'PBKDF2-SHA256-200000', salt: b64enc(salt), iv: b64enc(iv), data: b64enc(ct) };
+}
+async function gh(path, opts = {}) {
+  const pat = $('#ghPat').value.trim(); if (!pat) throw new Error('Paste your GitHub token first');
+  const r = await fetch('https://api.github.com' + path, { ...opts, headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(opts.headers || {}) } });
+  if (r.status === 204) return {};
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(j.message || r.statusText); e.status = r.status; throw e; }
+  return j;
+}
+async function putFile(path, text, message) {
+  const repo = $('#ghRepo').value.trim();
+  let sha; try { sha = (await gh(`/repos/${repo}/contents/${path}?ref=${DATA_BRANCH}`)).sha; } catch (e) { if (e.status !== 404) throw e; }
+  return gh(`/repos/${repo}/contents/${path}`, { method: 'PUT', body: JSON.stringify({ message, content: b64enc(new TextEncoder().encode(text)), branch: DATA_BRANCH, sha }) });
+}
+function apiNote(kind, html) { $('#apiStatus').innerHTML = `<div class="note ${kind} small">${html}</div>`; }
+
+$('#ghPushBtn').onclick = async () => {
+  try {
+    const pass = $('#ghKey').value; if (pass.length < 8) return alert('Use an encryption passphrase of at least 8 characters (same as the CAMPAIGN_KEY secret).');
+    if (!S.jobs.length && !buildSchedule()) return;
+    const type = $('#apiType').value; const tpl = $('#tplName').value.trim();
+    if (type === 'template' && !tpl) return alert('Enter the approved template name.');
+    const cols = $('#tplParams').value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    const used = {}; S.jobs.forEach(j => { if (j.image && S.images[j.image]) used[j.image] = S.images[j.image]; });
+    const s = readSettings();
+    const campaign = {
+      id: 'c' + Date.now(), createdAt: Date.now(),
+      settings: { perDay: s.perDay, windowStart: s.windowStart, windowEnd: s.windowEnd, minGapMin: s.minGapMin, maxGapMin: s.maxGapMin, days: s.days, tz: s.tz },
+      message: { type, template: tpl, lang: $('#tplLang').value.trim() || 'en' },
+      jobs: S.jobs.map((j, i) => ({ i, phone: j.phone, text: j.text, image: used[j.image] ? j.image : null, at: j.at, params: cols.map(c => String(j.vars?.[c] ?? '').trim() || (c === 'name' ? 'there' : '-')) })),
+      images: used
+    };
+    apiNote('info', 'Encrypting and uploading…');
+    const enc = await encrypt(campaign, pass);
+    await putFile('campaign.enc.json', JSON.stringify(enc), `campaign ${campaign.id} (${campaign.jobs.length} msgs, encrypted)`);
+    await putFile('state.json', JSON.stringify({ campaignId: campaign.id, sent: {}, failed: {}, daily: {}, media: {}, nextAllowedAt: 0, log: [] }, null, 1), 'reset state');
+    apiNote('ok', `Pushed <b>${campaign.jobs.length}</b> encrypted messages. The GitHub Action will start sending at the next 10-minute run inside your window. Use “Run sender now” to try immediately.`);
+    save();
+  } catch (e) { apiNote('err', 'GitHub error: ' + esc(e.message)); }
+};
+$('#ghRunBtn').onclick = async () => {
+  try { await gh(`/repos/${$('#ghRepo').value.trim()}/actions/workflows/send.yml/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main' }) }); apiNote('ok', 'Sender started on GitHub. Check status in a minute (or the repo’s Actions tab).'); }
+  catch (e) { apiNote('err', 'Could not start workflow: ' + esc(e.message)); }
+};
+$('#ghStatusBtn').onclick = async () => {
+  try {
+    const f = await gh(`/repos/${$('#ghRepo').value.trim()}/contents/state.json?ref=${DATA_BRANCH}`);
+    const st = JSON.parse(new TextDecoder().decode(b64dec(f.content)));
+    const sent = Object.keys(st.sent || {}).length, failed = Object.keys(st.failed || {}).length;
+    apiNote('info', `Campaign <b>${esc(st.campaignId || '-')}</b>: <b>${sent}</b> sent, <b>${failed}</b> failed. Next allowed: ${st.nextAllowedAt ? new Date(st.nextAllowedAt).toLocaleString() : '-'}<br>` +
+      (st.log || []).slice(-12).reverse().map(l => esc(new Date(l.t).toLocaleString() + ' — ' + l.msg)).join('<br>'));
+  } catch (e) { apiNote('err', 'Could not read status: ' + esc(e.message)); }
+};
+['ghRepo', 'apiType', 'tplName', 'tplLang', 'tplParams', 'optout', 'testPhone', 'cc', 'assignMode'].forEach(id => $('#' + id).addEventListener('change', save));
+
+// ---------------- tabs, upload wiring ----------------
+$$('.tab').forEach(t => t.onclick = () => { $$('.tab').forEach(x => x.classList.toggle('active', x === t)); $('#tab-web').classList.toggle('hidden', t.dataset.tab !== 'web'); $('#tab-api').classList.toggle('hidden', t.dataset.tab !== 'api'); });
+const drop = $('#xlsDrop');
+drop.onclick = () => $('#xlsInput').click();
+$('#xlsInput').onchange = (e) => { const f = e.target.files[0]; if (f) readFile(f); e.target.value = ''; };
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) readFile(f); };
+$('#addPasted').onclick = () => {
+  $('#pasteNums').value.split('\n').forEach(l => { const [p, ...n] = l.split(/[,\t;]/); if (p && p.trim()) addContact(p, n.join(' ').trim(), {}); });
+  $('#pasteNums').value = ''; renderContacts(); save();
+};
+$('#clearContacts').onclick = () => { if (confirm('Remove all contacts?')) { S.contacts = []; S.invalid = []; S.dups = 0; renderContacts(); save(); } };
+$('#sampleBtn').onclick = () => {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Phone', 'Name', 'City'], ['9876543210', 'Rahul', 'Delhi'], ['919812345678', 'Priya', 'Mumbai'], ['+91 98111 22233', 'Amit', 'Pune']]), 'Contacts');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Message', 'Image', 'Date'],
+    ['{Hi|Hello|Namaste} {name}! 🎉 Our weekend offer is live – 20% off for {city}.\nReply STOP to unsubscribe.', 'offer.jpg', ''],
+    ['Hi {name}, new stock just arrived. Want the catalogue?\nReply STOP to unsubscribe.', '', '']]), 'Messages');
+  XLSX.writeFile(wb, 'whatsapp-campaign-sample.xlsx');
+};
+
+restore(); renderContacts(); renderMessages(); policyCheck(); setPill();
+window.__S = S; // for debugging / tests
+})();
+</script>
+</body>
+</html>
